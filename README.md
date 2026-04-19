@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is a cloud-native data engineering platform for replicating and extending nutritional longevity research using NHANES and linked mortality data. The core objective is to operationalize a reproducible pipeline that ingests public health datasets, converts legacy SAS Transport (`.xpt`) files into analytics-friendly Parquet, and models the relationship between protein intake, IGF-1, and mortality outcomes in BigQuery.
+This project is a cloud-native data engineering platform for replicating and extending nutritional longevity research using NHANES and linked mortality data. The core objective is to operationalize a reproducible pipeline that ingests public health datasets, converts legacy SAS Transport (`.xpt`) files into analytics-friendly Parquet, and models the relationship between protein intake, metabolic biomarkers, and mortality outcomes in BigQuery.
 
 The plan is based on a validation workflow inspired by prior nutritional epidemiology research on protein intake and aging. It emphasizes modern data engineering practices, including Infrastructure as Code, workflow orchestration, analytics engineering, and scalable batch processing.
 
@@ -44,7 +44,8 @@ The project combines multiple public health datasets and reference tables:
 - **NHANES demographics**
   - Provides respondent attributes and survey context
 - **NHANES laboratory data**
-  - Includes serum biomarkers such as IGF-1 for biological mediation analysis
+  - The current continuous-NHANES pipeline now ingests fasting glucose (`L10AM_C`, `GLU_D`-`GLU_J`)
+  - Levine-style IGF-1 / IGFBP3 mediation work is a future extension that requires NHANES III or another compatible biomarker source
 - **Linked Mortality Files (LMF / NDI-linked public-use mortality data)**
   - Used to derive survival and mortality outcomes
 - **USDA food coding or food pattern references**
@@ -61,9 +62,8 @@ The plan centers on a set of variables that support replication of nutritional l
 - `MORTSTAT`: mortality status
 - `UCOD_113`: underlying cause-of-death grouping
 - `PERMTH_INT`: person-months of follow-up
-- `LBXIGF1`: serum IGF-1
-- `LBXIGB3`: IGF binding protein 3
 - `LBXGLU`: fasting glucose
+- `LBXIGF1`, `LBXIGB3`: Levine-paper biomarker targets not produced by the current continuous 2003-2018 ingestion window
 
 ## End-to-End Workflow
 
@@ -94,6 +94,28 @@ dbt transformations are organized into:
 - **Marts**
   - Publish analytical tables for mortality validation, cohort analysis, and dashboarding
 
+## dbt Project
+
+The repository now includes a `dbt/` project that treats the Kestra-loaded BigQuery tables as sources and publishes three layers:
+
+- **Staging**
+  - Standardized source models for demographics, total nutrients, item-level foods, mortality, fasting glucose, and the source catalog
+- **Intermediate**
+  - Respondent-level nutrient joins plus heuristic food-code classification for animal, plant, and unclassified protein sources
+- **Marts**
+  - Validation cohort, validation summary, and cycle-level protein trend outputs for dashboards and downstream modeling
+
+### Running dbt Locally
+
+1. `cd dbt`
+2. Create a local `profiles.yml` from `profiles.yml.example`
+3. Set `DBT_BIGQUERY_PROJECT`, `DBT_BIGQUERY_LOCATION`, `DBT_SOURCE_DATASET`, `DBT_MART_DATASET`, and `DBT_GOOGLE_APPLICATION_CREDENTIALS`
+4. Run `dbt seed --profiles-dir .`
+5. Run `dbt run --profiles-dir .`
+6. Run `dbt test --profiles-dir .`
+
+The initial protein-source model uses USDA FNDDS major food groups as a transparent heuristic. Mixed dishes and ambiguous food groups remain partially unclassified until a richer food-code reference table is added.
+
 ## Analytical Use Cases
 
 ### Historical Mortality Validation
@@ -106,7 +128,7 @@ Because newer NHANES cycles provide recent intake data without mature mortality 
 
 ### Biological Mediation Analysis
 
-By joining protein intake with laboratory biomarkers such as IGF-1, the platform can support analysis of whether biological signaling pathways mediate the observed relationship between diet and mortality.
+By joining protein intake with currently ingested biomarkers such as fasting glucose, the platform can support metabolic risk stratification now, while Levine-style IGF-1 mediation remains a future NHANES III extension.
 
 ## Important Constraint
 
@@ -117,6 +139,7 @@ In practice, this means:
 - NHANES III and continuous historical cycles through roughly 1999-2018 are the right foundation for mortality outcome validation
 - newer cycles such as 2021-2023 are better suited for descriptive intake analysis and projected risk modeling
 - the pipeline should be designed so future CDC mortality releases can be integrated without redesigning the platform
+- exact Levine-style IGF-1 mediation analysis still depends on extending the platform beyond continuous 2003-2018 public files
 
 ## Proposed Outputs
 
@@ -127,7 +150,7 @@ The project is intended to produce:
 - protein-energy ratio features
 - mortality-linked analytical marts
 - age-stratified cohorts for hazard modeling
-- IGF-1 mediation-ready research tables
+- fasting-glucose-enriched research tables plus a path toward future IGF-1 mediation extensions
 
 ## Implementation Roadmap
 

@@ -1,0 +1,34 @@
+name: nhanes_low_protein
+version: 1.0.0
+config-version: 2
+
+profile: nhanes_low_protein
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+analysis-paths: ["analyses"]
+snapshot-paths: ["snapshots"]
+
+target-path: target
+clean-targets:
+  - target
+  - dbt_packages
+  - logs
+
+models:
+  nhanes_low_protein:
+    +persist_docs:
+      relation: true
+      columns: true
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: table
+    marts:
+      +materialized: table
+
+seeds:
+  nhanes_low_protein:
+    +quote_columns: false

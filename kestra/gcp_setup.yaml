@@ -5,7 +5,7 @@ tasks:
   - id: create_gcs_bucket
     type: io.kestra.plugin.gcp.gcs.CreateBucket
     ifExists: SKIP
-    storageClass: REGIONAL
+    storageClass: STANDARD
     name: "{{kv('GCP_BUCKET_NAME')}}" # make sure it's globally unique!
 
   - id: create_bq_dataset

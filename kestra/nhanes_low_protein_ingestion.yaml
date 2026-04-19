@@ -1,9 +1,10 @@
 id: nhanes_low_protein_ingestion
 namespace: nhanes
 description: |
-  Yearly CDC/NCHS ingestion for continuous NHANES 2003-2018 dietary and demographics
-  files plus the public-use linked mortality files. This flow builds a BigQuery cohort for
-  validating the low-protein mortality hypothesis on the 2003-2018 linked-mortality window.
+  Yearly CDC/NCHS ingestion for continuous NHANES 2003-2018 dietary, demographics, and
+  fasting-glucose files plus the public-use linked mortality files. This flow builds a
+  BigQuery cohort for validating the low-protein mortality hypothesis on the 2003-2018
+  linked-mortality window.
   It is deliberately not an exact reproduction of the 2014 Levine paper, because that paper
   used NHANES III rather than continuous NHANES 2003-2018.
 
@@ -69,12 +70,18 @@ tasks:
             {"cycle_start_year": 2017, "cycle_end_year": 2018, "suffix": "J"},
         ]
 
-        FILE_MAP = {
-            "demo": "DEMO_{suffix}",
-            "dr1tot": "DR1TOT_{suffix}",
-            "dr2tot": "DR2TOT_{suffix}",
-            "dr1iff": "DR1IFF_{suffix}",
-            "dr2iff": "DR2IFF_{suffix}",
+        ASSET_DEFINITIONS = {
+            "demo": {"template": "DEMO_{suffix}", "file_format": "XPT"},
+            "dr1tot": {"template": "DR1TOT_{suffix}", "file_format": "XPT"},
+            "dr2tot": {"template": "DR2TOT_{suffix}", "file_format": "XPT"},
+            "dr1iff": {"template": "DR1IFF_{suffix}", "file_format": "XPT"},
+            "dr2iff": {"template": "DR2IFF_{suffix}", "file_format": "XPT"},
+            # 2003-2004 fasting glucose is published under the legacy Lab 10 AM naming.
+            "glu": {
+                "template": "GLU_{suffix}",
+                "file_format": "XPT",
+                "overrides": {"C": "L10AM_C"},
+            },
         }
 
         # CDC's public-use NHANES mortality files are fixed-width DAT files. The linked-mortality
@@ -208,13 +215,17 @@ tasks:
                 "dr2tot": [],
                 "dr1iff": [],
                 "dr2iff": [],
+                "glu": [],
                 "mortality": [],
             }
             source_records = []
 
             for cycle in CYCLES:
-                for asset_type, template in FILE_MAP.items():
-                    file_code = template.format(suffix=cycle["suffix"])
+                for asset_type, asset_definition in ASSET_DEFINITIONS.items():
+                    file_code = asset_definition.get("overrides", {}).get(
+                        cycle["suffix"],
+                        asset_definition["template"].format(suffix=cycle["suffix"]),
+                    )
                     source_url = XPT_BASE_URL.format(
                         cycle_start_year=cycle["cycle_start_year"],
                         file_code=file_code,
@@ -227,7 +238,7 @@ tasks:
                         {
                             "asset_type": asset_type,
                             "file_code": file_code,
-                            "file_format": "XPT",
+                            "file_format": asset_definition["file_format"],
                             "cycle_start_year": cycle["cycle_start_year"],
                             "cycle_end_year": cycle["cycle_end_year"],
                             "cycle_label": f"{cycle['cycle_start_year']}-{cycle['cycle_end_year']}",
@@ -288,7 +299,7 @@ tasks:
             manifest = {
                 "dataset_window": "2003-2018",
                 "cycles": [f"{cycle['cycle_start_year']}-{cycle['cycle_end_year']}" for cycle in CYCLES],
-                "nhanes_assets": list(FILE_MAP.keys()),
+                "nhanes_assets": list(ASSET_DEFINITIONS.keys()),
                 "public_mortality_release_year_by_cycle": cycle_release_years,
                 "mortality_followup_available_through": mortality_followup_available_through,
                 "linked_mortality_note": "CDC currently exposes NHANES linked mortality for survey years 1999-2018; the public-use files are distributed as the latest available public release on the linked mortality FTP listing.",
@@ -339,6 +350,11 @@ tasks:
     type: io.kestra.plugin.gcp.gcs.Upload
     from: "{{ outputs.build_source_catalog_and_stage_files.outputFiles['stage/dr2iff_2003_2018.parquet'] }}"
     to: "gs://{{ kv('GCP_BUCKET_NAME') }}/nhanes/low_protein_validation/current/stage/dr2iff_2003_2018.parquet"
+
+  - id: upload_glu
+    type: io.kestra.plugin.gcp.gcs.Upload
+    from: "{{ outputs.build_source_catalog_and_stage_files.outputFiles['stage/glu_2003_2018.parquet'] }}"
+    to: "gs://{{ kv('GCP_BUCKET_NAME') }}/nhanes/low_protein_validation/current/stage/glu_2003_2018.parquet"
 
   - id: upload_mortality
     type: io.kestra.plugin.gcp.gcs.Upload
@@ -393,6 +409,14 @@ tasks:
     from:
       - "gs://{{ kv('GCP_BUCKET_NAME') }}/nhanes/low_protein_validation/current/stage/dr2iff_2003_2018.parquet"
 
+  - id: load_glu
+    type: io.kestra.plugin.gcp.bigquery.LoadFromGcs
+    destinationTable: "{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_glu_2003_2018"
+    format: PARQUET
+    writeDisposition: WRITE_TRUNCATE
+    from:
+      - "gs://{{ kv('GCP_BUCKET_NAME') }}/nhanes/low_protein_validation/current/stage/glu_2003_2018.parquet"
+
   - id: load_mortality
     type: io.kestra.plugin.gcp.bigquery.LoadFromGcs
     destinationTable: "{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_mortality_2003_2018"
@@ -426,6 +450,11 @@ tasks:
           *
         FROM `{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_mortality_2003_2018`
       ),
+      glu AS (
+        SELECT
+          *
+        FROM `{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_glu_2003_2018`
+      ),
       joined AS (
         SELECT
           d.SEQN,
@@ -452,6 +481,11 @@ tasks:
           t2.DR2TPROT,
           t2.DR2TCARB,
           t2.DR2TTFAT,
+          g.WTSAF2YR,
+          g.LBXGLU,
+          g.LBDGLUSI,
+          g.PHAFSTHR,
+          g.PHAFSTMN,
           m.ELIGSTAT,
           m.MORTSTAT,
           m.UCOD_LEADING,
@@ -464,6 +498,8 @@ tasks:
         LEFT JOIN dr1tot AS t1
           USING (SEQN, CYCLE_START_YEAR, CYCLE_END_YEAR)
         LEFT JOIN dr2tot AS t2
+          USING (SEQN, CYCLE_START_YEAR, CYCLE_END_YEAR)
+        LEFT JOIN glu AS g
           USING (SEQN, CYCLE_START_YEAR, CYCLE_END_YEAR)
         LEFT JOIN mortality AS m
           USING (SEQN, CYCLE_START_YEAR, CYCLE_END_YEAR)
@@ -490,9 +526,16 @@ tasks:
         SAFE_DIVIDE(WTMEC2YR, 8.0) AS WTMEC16YR,
         SAFE_DIVIDE(WTDRD1, 8.0) AS WTDRD1_16YR,
         SAFE_DIVIDE(WTDR2D, 8.0) AS WTDR2D_16YR,
+        SAFE_DIVIDE(WTSAF2YR, 8.0) AS WTSAF16YR,
         CAST(MORTSTAT = 1 AS BOOL) AS DIED_DURING_FOLLOWUP,
         CAST(UCOD_LEADING = '002' AS BOOL) AS CANCER_DEATH_FLAG,
         CAST(DIABETES = 1 AS BOOL) AS DIABETES_MCOD_FLAG,
+        CASE
+          WHEN LBXGLU >= 126 THEN 'DIABETES_RANGE'
+          WHEN LBXGLU >= 100 THEN 'PREDIABETES_RANGE'
+          WHEN LBXGLU IS NULL THEN 'MISSING'
+          ELSE 'NORMAL_RANGE'
+        END AS FASTING_GLUCOSE_CATEGORY,
         'Original paper used NHANES III rather than continuous NHANES 2003-2018; this cohort is for validation and extension, not exact replication.' AS COMPARABILITY_NOTE
       FROM joined
       WHERE ELIGSTAT = 1
@@ -526,6 +569,7 @@ tasks:
         "dr2tot_table": "{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_dr2tot_2003_2018",
         "dr1iff_table": "{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_dr1iff_2003_2018",
         "dr2iff_table": "{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_dr2iff_2003_2018",
+        "glu_table": "{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_glu_2003_2018",
         "mortality_table": "{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_mortality_2003_2018",
         "validation_cohort_table": "{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_validation_cohort_2003_2018",
         "validation_summary_table": "{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_validation_summary_2003_2018"

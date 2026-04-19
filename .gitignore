@@ -221,3 +221,9 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# dbt
+dbt/profiles.yml
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/

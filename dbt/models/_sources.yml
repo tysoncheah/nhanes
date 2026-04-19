@@ -1,0 +1,33 @@
+version: 2
+
+sources:
+  - name: nhanes_landing
+    description: Kestra-loaded NHANES landing tables in BigQuery.
+    database: "{{ env_var('DBT_SOURCE_PROJECT', target.project) }}"
+    schema: "{{ env_var('DBT_SOURCE_DATASET', target.schema) }}"
+    loader: kestra
+    tables:
+      - name: source_catalog
+        identifier: nhanes_lp_source_catalog_2003_2018
+        description: Source inventory generated during NHANES ingestion.
+      - name: demo
+        identifier: nhanes_lp_demo_2003_2018
+        description: Respondent demographics across NHANES 2003-2018 cycles.
+      - name: dr1tot
+        identifier: nhanes_lp_dr1tot_2003_2018
+        description: Day 1 total nutrient intake records.
+      - name: dr2tot
+        identifier: nhanes_lp_dr2tot_2003_2018
+        description: Day 2 total nutrient intake records.
+      - name: dr1iff
+        identifier: nhanes_lp_dr1iff_2003_2018
+        description: Day 1 item-level food intake records.
+      - name: dr2iff
+        identifier: nhanes_lp_dr2iff_2003_2018
+        description: Day 2 item-level food intake records.
+      - name: glu
+        identifier: nhanes_lp_glu_2003_2018
+        description: Fasting glucose and insulin records across the public continuous cycles.
+      - name: mortality
+        identifier: nhanes_lp_mortality_2003_2018
+        description: Public-use linked mortality records for NHANES 2003-2018.
