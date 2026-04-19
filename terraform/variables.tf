@@ -21,11 +21,10 @@ variable "dataset_id" {
   default     = "nhanes"
 }
 
-variable "bucket_name_override" {
-  description = "Optional globally unique GCS bucket name. Leave null to derive one from project and environment."
+variable "bucket_name" {
+  description = "The name of the GCS bucket for NHANES data."
   type        = string
-  default     = null
-  nullable    = true
+  default     = "nhanes-bucket"
 }
 
 variable "bucket_storage_class" {
@@ -46,16 +45,10 @@ variable "force_destroy_bucket" {
   default     = false
 }
 
-variable "kestra_service_account_id" {
-  description = "Account ID for the service account used by Kestra GCP plugins."
+variable "kestra_service_account_email" {
+  description = "The email address of the existing service account used by Kestra."
   type        = string
-  default     = "kestra-nhanes"
-}
-
-variable "kestra_service_account_display_name" {
-  description = "Display name for the Kestra service account."
-  type        = string
-  default     = "Kestra NHANES Orchestrator"
+  default     = "admin-292@nhanes-493602.iam.gserviceaccount.com"
 }
 
 variable "enable_kestra_bootstrap_permissions" {

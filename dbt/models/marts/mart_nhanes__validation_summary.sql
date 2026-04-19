@@ -1,3 +1,8 @@
+{{ config(
+    materialized='table',
+    cluster_by=["age_band_levine", "protein_group_day_1"]
+) }}
+
 with cohort as (
     select * from {{ ref('mart_nhanes__validation_cohort') }}
 )

@@ -1,3 +1,8 @@
+{{ config(
+    materialized='table',
+    cluster_by=["adult_age_band", "protein_group_day_1"]
+) }}
+
 with respondent_daily as (
     select * from {{ ref('int_nhanes__respondent_daily_nutrients') }}
 ),

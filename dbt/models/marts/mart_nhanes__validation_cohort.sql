@@ -1,3 +1,17 @@
+{{ config(
+    materialized='table',
+    partition_by={
+      "field": "cycle_start_year",
+      "data_type": "int64",
+      "range": {
+        "start": 2003,
+        "end": 2019,
+        "interval": 2
+      }
+    },
+    cluster_by=["age_band_levine", "protein_group_day_1"]
+) }}
+
 with respondent_daily as (
     select * from {{ ref('int_nhanes__respondent_daily_nutrients') }}
 ),

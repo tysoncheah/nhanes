@@ -427,9 +427,11 @@ tasks:
 
   - id: build_validation_cohort
     type: io.kestra.plugin.gcp.bigquery.Query
-    destinationTable: "{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_validation_cohort_2003_2018"
-    writeDisposition: WRITE_TRUNCATE
     sql: |
+      CREATE OR REPLACE TABLE `{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_validation_cohort_2003_2018`
+      PARTITION BY RANGE_BUCKET(CYCLE_START_YEAR, GENERATE_ARRAY(2003, 2019, 2))
+      CLUSTER BY PAPER_AGE_BAND, PROTEIN_GROUP_DAY1
+      AS
       WITH demo AS (
         SELECT
           *
@@ -544,9 +546,10 @@ tasks:
 
   - id: build_validation_summary
     type: io.kestra.plugin.gcp.bigquery.Query
-    destinationTable: "{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_validation_summary_2003_2018"
-    writeDisposition: WRITE_TRUNCATE
     sql: |
+      CREATE OR REPLACE TABLE `{{ kv('GCP_PROJECT_ID') }}.{{ kv('GCP_DATASET') }}.nhanes_lp_validation_summary_2003_2018`
+      CLUSTER BY PAPER_AGE_BAND, PROTEIN_GROUP_DAY1
+      AS
       SELECT
         PAPER_AGE_BAND,
         PROTEIN_GROUP_DAY1,

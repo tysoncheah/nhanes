@@ -20,7 +20,7 @@ output "dataset_id" {
 
 output "kestra_service_account_email" {
   description = "Service account email to use for Kestra GCP authentication."
-  value       = google_service_account.kestra.email
+  value       = var.kestra_service_account_email
 }
 
 output "kestra_kv_values" {
