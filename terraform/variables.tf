@@ -1,6 +1,7 @@
 variable "project_id" {
   description = "GCP project ID used by the NHANES platform."
   type        = string
+  default     = "nhanes-493602"
 }
 
 variable "location" {
