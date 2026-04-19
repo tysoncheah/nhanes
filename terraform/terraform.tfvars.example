@@ -1,0 +1,14 @@
+project_id                       = "nhanes-493602"
+location                         = "asia-southeast1"
+environment                      = "dev"
+dataset_id                       = "nhanes"
+bucket_name_override             = "nhanes-493602-dev-nhanes-data"
+kestra_service_account_id        = "kestra-nhanes"
+kestra_service_account_display_name = "Kestra NHANES Orchestrator"
+enable_kestra_bootstrap_permissions = true
+
+labels = {
+  owner      = "nhanes"
+  use_case   = "low-protein-validation"
+  managed_by = "terraform"
+}
