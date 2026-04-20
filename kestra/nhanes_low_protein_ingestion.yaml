@@ -18,7 +18,6 @@ triggers:
     type: io.kestra.plugin.core.trigger.Schedule
     cron: "0 3 15 1 *"
     timezone: Asia/Kuala_Lumpur
-    allowConcurrent: false
     recoverMissedSchedules: LAST
 
 pluginDefaults:
@@ -175,7 +174,7 @@ tasks:
 
 
         def mortality_release_year_for_cycle(listing_html: str, cycle_start_year: int, cycle_end_year: int) -> int:
-            pattern = rf"NHANES_{cycle_start_year}_{cycle_end_year}_MORT_(\d{{4}})_PUBLIC\.dat"
+            pattern = f"NHANES_{cycle_start_year}_{cycle_end_year}_MORT_" + r"(\d{4})_PUBLIC\.dat"
             release_years = re.findall(pattern, listing_html)
             if not release_years:
                 raise RuntimeError(
@@ -209,19 +208,20 @@ tasks:
             mortality_followup_available_through = mortality_followup_text(mortality_index_html)
             cycle_release_years = {}
 
-            domain_frames = {
-                "demo": [],
-                "dr1tot": [],
-                "dr2tot": [],
-                "dr1iff": [],
-                "dr2iff": [],
-                "glu": [],
-                "mortality": [],
-            }
             source_records = []
+            cycle_release_years = {}
 
             for cycle in CYCLES:
-                for asset_type, asset_definition in ASSET_DEFINITIONS.items():
+                cycle_public_release_year = mortality_release_year_for_cycle(
+                    mortality_listing_html,
+                    cycle["cycle_start_year"],
+                    cycle["cycle_end_year"],
+                )
+                cycle_release_years[f"{cycle['cycle_start_year']}-{cycle['cycle_end_year']}"] = cycle_public_release_year
+
+            for asset_type, asset_definition in ASSET_DEFINITIONS.items():
+                frames = []
+                for cycle in CYCLES:
                     file_code = asset_definition.get("overrides", {}).get(
                         cycle["suffix"],
                         asset_definition["template"].format(suffix=cycle["suffix"]),
@@ -230,9 +230,10 @@ tasks:
                         cycle_start_year=cycle["cycle_start_year"],
                         file_code=file_code,
                     )
+                    print(f"Downloading {asset_type} for {cycle['cycle_start_year']}-{cycle['cycle_end_year']} from {source_url}...")
                     frame = read_xpt(session, source_url)
                     frame = add_common_metadata(frame, cycle, source_url, file_code, asset_type)
-                    domain_frames[asset_type].append(frame)
+                    frames.append(frame)
 
                     source_records.append(
                         {
@@ -249,18 +250,22 @@ tasks:
                         }
                     )
 
-                cycle_public_release_year = mortality_release_year_for_cycle(
-                    mortality_listing_html,
-                    cycle["cycle_start_year"],
-                    cycle["cycle_end_year"],
-                )
-                cycle_release_years[f"{cycle['cycle_start_year']}-{cycle['cycle_end_year']}"] = cycle_public_release_year
+                print(f"Saving combined parquet for {asset_type}...")
+                combined = concat_frames(frames)
+                combined.to_parquet(f"stage/{asset_type}_2003_2018.parquet", index=False)
+                del frames
+                del combined
 
+            # Process mortality separately
+            frames = []
+            for cycle in CYCLES:
+                cycle_public_release_year = cycle_release_years[f"{cycle['cycle_start_year']}-{cycle['cycle_end_year']}"]
                 mortality_file_name = (
                     f"NHANES_{cycle['cycle_start_year']}_{cycle['cycle_end_year']}"
                     f"_MORT_{cycle_public_release_year}_PUBLIC.dat"
                 )
                 mortality_url = MORTALITY_LISTING_URL + mortality_file_name
+                print(f"Downloading mortality for {cycle['cycle_start_year']}-{cycle['cycle_end_year']} from {mortality_url}...")
                 mortality_frame = read_mortality_file(session, mortality_url)
                 mortality_frame = add_common_metadata(
                     mortality_frame,
@@ -270,7 +275,7 @@ tasks:
                     "mortality",
                 )
                 mortality_frame["MORTALITY_PUBLIC_RELEASE_YEAR"] = cycle_public_release_year
-                domain_frames["mortality"].append(mortality_frame)
+                frames.append(mortality_frame)
 
                 source_records.append(
                     {
@@ -286,15 +291,18 @@ tasks:
                         "paper_comparability_note": "2014 Levine paper used NHANES III, so this continuous NHANES 2003-2018 pipeline is a validation extension rather than an exact reproduction.",
                     }
                 )
+                
+            print(f"Saving combined parquet for mortality...")
+            combined = concat_frames(frames)
+            combined.to_parquet(f"stage/mortality_2003_2018.parquet", index=False)
+            del frames
+            del combined
 
+            print("Saving source catalog...")
             source_catalog = pd.DataFrame(source_records).sort_values(
                 by=["cycle_start_year", "asset_type", "file_code"]
             )
             source_catalog.to_parquet("stage/source_catalog_2003_2018.parquet", index=False)
-
-            for asset_type, frames in domain_frames.items():
-                combined = concat_frames(frames)
-                combined.to_parquet(f"stage/{asset_type}_2003_2018.parquet", index=False)
 
             manifest = {
                 "dataset_window": "2003-2018",
@@ -311,7 +319,7 @@ tasks:
         if __name__ == "__main__":
             main()
     commands:
-      - python build_nhanes_assets.py
+      - python -u build_nhanes_assets.py
     outputFiles:
       - metadata/*.json
       - stage/*.parquet
