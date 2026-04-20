@@ -35,7 +35,7 @@ st.markdown('<p class="sub-header">Validation of the Levine et al. 2014 findings
 def load_data():
     df_mortality = None
     try:
-        client = bigquery.Client(credentials=credentials,project=st.secrets["gcp_service_account"]["nhanes-493602"])
+        client = bigquery.Client(credentials=credentials,project="nhanes-493602")
         query = """
             SELECT 
                 age_band_levine as `Age Group`,
