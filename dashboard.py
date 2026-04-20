@@ -34,6 +34,7 @@ st.markdown('<p class="sub-header">Validation of the Levine et al. 2014 findings
 @st.cache_data
 def load_data():
     df_mortality = None
+    df_protein_disease = None
     try:
         client = bigquery.Client(credentials=credentials,project="nhanes-493602")
         query = """
@@ -69,23 +70,91 @@ def load_data():
                 mortality_data.append({"Age Group": "66+", "Protein Intake": protein, "Cause": cause, "Mortality Rate (per 1000)": rate})
         df_mortality = pd.DataFrame(mortality_data)
 
-    # IGF-1 was only measured in NHANES III, not continuous 2003-2018.
-    # Therefore, we use mock data to replicate the paper's findings for IGF-1.
-    igf1_data = pd.DataFrame({
-        "Age Group": ["50-65", "50-65", "50-65", "66+", "66+", "66+"],
-        "Protein Intake": ["LOW", "MODERATE", "HIGH", "LOW", "MODERATE", "HIGH"],
-        "IGF-1 (ng/ml)": [120, 150, 170, 110, 120, 125]
-    })
+    # Fetch animal vs plant protein disease relationships
+    try:
+        client = bigquery.Client(credentials=credentials, project="nhanes-493602")
+        protein_query = """
+            WITH protein_quartiles AS (
+                SELECT 
+                    APPROX_QUANTILES(day_1_animal_protein_g_est, 4) AS animal_protein_quartiles,
+                    APPROX_QUANTILES(day_1_plant_protein_g_est, 4) AS plant_protein_quartiles
+                FROM `nhanes.mart_nhanes__validation_cohort`
+                WHERE age_band_levine IS NOT NULL
+                    AND day_1_animal_protein_g_est IS NOT NULL 
+                    AND day_1_plant_protein_g_est IS NOT NULL
+            ),
+            animal_protein_analysis AS (
+                SELECT 
+                    age_band_levine,
+                    'Animal Protein' as protein_type,
+                    CASE 
+                        WHEN day_1_animal_protein_g_est < 25 THEN 'Q1 (Low)'
+                        WHEN day_1_animal_protein_g_est < 35 THEN 'Q2'
+                        WHEN day_1_animal_protein_g_est < 45 THEN 'Q3'
+                        ELSE 'Q4 (High)'
+                    END as protein_quartile,
+                    SUM(CASE WHEN cancer_death_flag THEN day_1_recall_weight_16yr ELSE 0 END) / 
+                        NULLIF(SUM(day_1_recall_weight_16yr), 0) * 1000 as cancer_rate,
+                    SUM(CASE WHEN diabetes_mcod_flag THEN day_1_recall_weight_16yr ELSE 0 END) / 
+                        NULLIF(SUM(day_1_recall_weight_16yr), 0) * 1000 as diabetes_rate,
+                    SUM(CASE WHEN hypertension_mcod_flag THEN day_1_recall_weight_16yr ELSE 0 END) / 
+                        NULLIF(SUM(day_1_recall_weight_16yr), 0) * 1000 as hypertension_rate,
+                    SUM(CASE WHEN died_during_followup THEN day_1_recall_weight_16yr ELSE 0 END) / 
+                        NULLIF(SUM(day_1_recall_weight_16yr), 0) * 1000 as mortality_rate
+                FROM `nhanes.mart_nhanes__validation_cohort`
+                WHERE age_band_levine IS NOT NULL 
+                    AND day_1_animal_protein_g_est IS NOT NULL
+                GROUP BY age_band_levine, protein_quartile
+            ),
+            plant_protein_analysis AS (
+                SELECT 
+                    age_band_levine,
+                    'Plant Protein' as protein_type,
+                    CASE 
+                        WHEN day_1_plant_protein_g_est < 10 THEN 'Q1 (Low)'
+                        WHEN day_1_plant_protein_g_est < 15 THEN 'Q2'
+                        WHEN day_1_plant_protein_g_est < 20 THEN 'Q3'
+                        ELSE 'Q4 (High)'
+                    END as protein_quartile,
+                    SUM(CASE WHEN cancer_death_flag THEN day_1_recall_weight_16yr ELSE 0 END) / 
+                        NULLIF(SUM(day_1_recall_weight_16yr), 0) * 1000 as cancer_rate,
+                    SUM(CASE WHEN diabetes_mcod_flag THEN day_1_recall_weight_16yr ELSE 0 END) / 
+                        NULLIF(SUM(day_1_recall_weight_16yr), 0) * 1000 as diabetes_rate,
+                    SUM(CASE WHEN hypertension_mcod_flag THEN day_1_recall_weight_16yr ELSE 0 END) / 
+                        NULLIF(SUM(day_1_recall_weight_16yr), 0) * 1000 as hypertension_rate,
+                    SUM(CASE WHEN died_during_followup THEN day_1_recall_weight_16yr ELSE 0 END) / 
+                        NULLIF(SUM(day_1_recall_weight_16yr), 0) * 1000 as mortality_rate
+                FROM `nhanes.mart_nhanes__validation_cohort`
+                WHERE age_band_levine IS NOT NULL 
+                    AND day_1_plant_protein_g_est IS NOT NULL
+                GROUP BY age_band_levine, protein_quartile
+            )
+            SELECT * FROM animal_protein_analysis
+            UNION ALL
+            SELECT * FROM plant_protein_analysis
+        """
+        df_protein = client.query(protein_query).to_dataframe()
+        df_protein_disease = pd.melt(
+            df_protein,
+            id_vars=['age_band_levine', 'protein_type', 'protein_quartile'],
+            var_name='Disease',
+            value_name='Rate (per 1000)'
+        )
+        df_protein_disease['age_band_levine'] = df_protein_disease['age_band_levine'].replace(
+            {'50_65': '50-65', '66_PLUS': '66+'}
+        )
+        df_protein_disease['Disease'] = df_protein_disease['Disease'].str.replace('_', ' ').str.title()
+    except Exception as e:
+        st.warning(f"Could not fetch protein-disease data from BigQuery ({e}).")
+        df_protein_disease = None
     
-    return df_mortality, igf1_data
+    return df_mortality, df_protein_disease
 
-df_mortality, df_igf1 = load_data()
+df_mortality, df_protein_disease = load_data()
 
 # Ensure categorical sorting
 df_mortality['Protein Intake'] = pd.Categorical(df_mortality['Protein Intake'], categories=["LOW", "MODERATE", "HIGH"], ordered=True)
-df_igf1['Protein Intake'] = pd.Categorical(df_igf1['Protein Intake'], categories=["LOW", "MODERATE", "HIGH"], ordered=True)
 df_mortality = df_mortality.sort_values('Protein Intake')
-df_igf1 = df_igf1.sort_values('Protein Intake')
 
 st.markdown("### Mortality and Disease Risk by Protein Intake")
 st.info("Notice the risk patterns between the two age groups. For individuals 50-65, higher protein intake is associated with elevated risk. However, for individuals 66 and older, higher protein intake is protective and associated with reduced risk. This reversal is a key finding in the Levine 2014 study.")
@@ -113,26 +182,56 @@ fig_line.update_traces(line=dict(width=3), marker=dict(size=8))
 st.plotly_chart(fig_line, use_container_width=True)
 
 st.markdown("---")
-st.markdown("### Serum IGF-1 Levels")
+st.markdown("### Animal & Plant Protein vs Disease Risk")
+st.info("Relationship between animal and plant protein intake with disease outcomes (cancer, diabetes, hypertension) across different age groups. Data is stratified by protein quartiles derived from actual NHANES intake records.")
 
-col1, col2 = st.columns([1, 2])
-
-with col1:
-    st.info("**Insulin-like Growth Factor 1 (IGF-1)**\n\nIGF-1 is a key growth factor. The paper proposes that protein intake drives IGF-1 levels. In the 50-65 age group, higher protein intake leads to significantly higher IGF-1, which promotes cancer cell growth. In the 66+ age group, IGF-1 levels naturally drop, so moderate/high protein intake helps maintain healthy levels without excessive cancer risk.")
-
-with col2:
-    fig_bar = px.bar(
-        df_igf1, 
-        x="Protein Intake", 
-        y="IGF-1 (ng/ml)", 
-        color="Age Group", 
-        barmode="group",
-        color_discrete_sequence=["#ef4444", "#3b82f6"]
-    )
-    fig_bar.update_layout(
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter", size=14),
-        margin=dict(t=10, b=10, l=10, r=10)
-    )
-    st.plotly_chart(fig_bar, use_container_width=True)
+if df_protein_disease is not None:
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### Animal Protein Impact")
+        animal_data = df_protein_disease[df_protein_disease['protein_type'] == 'Animal Protein']
+        fig_animal = px.bar(
+            animal_data,
+            x='protein_quartile',
+            y='Rate (per 1000)',
+            color='age_band_levine',
+            facet_col='Disease',
+            facet_col_wrap=2,
+            color_discrete_sequence=["#ef4444", "#3b82f6"],
+            labels={'protein_quartile': 'Animal Protein Quartile', 'age_band_levine': 'Age Group'}
+        )
+        fig_animal.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Inter", size=12),
+            margin=dict(t=50, b=10, l=10, r=10),
+            showlegend=True
+        )
+        fig_animal.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+        st.plotly_chart(fig_animal, use_container_width=True)
+    
+    with col2:
+        st.markdown("#### Plant Protein Impact")
+        plant_data = df_protein_disease[df_protein_disease['protein_type'] == 'Plant Protein']
+        fig_plant = px.bar(
+            plant_data,
+            x='protein_quartile',
+            y='Rate (per 1000)',
+            color='age_band_levine',
+            facet_col='Disease',
+            facet_col_wrap=2,
+            color_discrete_sequence=["#ef4444", "#3b82f6"],
+            labels={'protein_quartile': 'Plant Protein Quartile', 'age_band_levine': 'Age Group'}
+        )
+        fig_plant.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Inter", size=12),
+            margin=dict(t=50, b=10, l=10, r=10),
+            showlegend=True
+        )
+        fig_plant.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+        st.plotly_chart(fig_plant, use_container_width=True)
+else:
+    st.warning("Could not load animal and plant protein disease data.")
