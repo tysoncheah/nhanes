@@ -74,16 +74,7 @@ def load_data():
     try:
         client = bigquery.Client(credentials=credentials, project="nhanes-493602")
         protein_query = """
-            WITH protein_quartiles AS (
-                SELECT 
-                    APPROX_QUANTILES(day_1_animal_protein_g_est, 4) AS animal_protein_quartiles,
-                    APPROX_QUANTILES(day_1_plant_protein_g_est, 4) AS plant_protein_quartiles
-                FROM `nhanes.mart_nhanes__validation_cohort`
-                WHERE age_band_levine IS NOT NULL
-                    AND day_1_animal_protein_g_est IS NOT NULL 
-                    AND day_1_plant_protein_g_est IS NOT NULL
-            ),
-            animal_protein_analysis AS (
+            WITH animal_protein_analysis AS (
                 SELECT 
                     age_band_levine,
                     'Animal Protein' as protein_type,
@@ -134,16 +125,21 @@ def load_data():
             SELECT * FROM plant_protein_analysis
         """
         df_protein = client.query(protein_query).to_dataframe()
-        df_protein_disease = pd.melt(
-            df_protein,
-            id_vars=['age_band_levine', 'protein_type', 'protein_quartile'],
-            var_name='Disease',
-            value_name='Rate (per 1000)'
-        )
-        df_protein_disease['age_band_levine'] = df_protein_disease['age_band_levine'].replace(
-            {'50_65': '50-65', '66_PLUS': '66+'}
-        )
-        df_protein_disease['Disease'] = df_protein_disease['Disease'].str.replace('_', ' ').str.title()
+        
+        if df_protein is not None and len(df_protein) > 0:
+            df_protein_disease = pd.melt(
+                df_protein,
+                id_vars=['age_band_levine', 'protein_type', 'protein_quartile'],
+                value_vars=['cancer_rate', 'diabetes_rate', 'hypertension_rate', 'mortality_rate'],
+                var_name='Disease',
+                value_name='Rate (per 1000)'
+            )
+            df_protein_disease['age_band_levine'] = df_protein_disease['age_band_levine'].replace(
+                {'50_65': '50-65', '66_PLUS': '66+'}
+            )
+            df_protein_disease['Disease'] = df_protein_disease['Disease'].str.replace('_rate', '').str.replace('_', ' ').str.title()
+        else:
+            df_protein_disease = None
     except Exception as e:
         st.warning(f"Could not fetch protein-disease data from BigQuery ({e}).")
         df_protein_disease = None
@@ -179,7 +175,7 @@ fig_line.update_layout(
 )
 # Make lines thicker and markers larger for better premium feel
 fig_line.update_traces(line=dict(width=3), marker=dict(size=8))
-st.plotly_chart(fig_line, use_container_width=True)
+st.plotly_chart(fig_line, width='stretch')
 
 st.markdown("---")
 st.markdown("### Animal & Plant Protein vs Disease Risk")
@@ -209,7 +205,7 @@ if df_protein_disease is not None:
             showlegend=True
         )
         fig_animal.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-        st.plotly_chart(fig_animal, use_container_width=True)
+        st.plotly_chart(fig_animal, width='stretch')
     
     with col2:
         st.markdown("#### Plant Protein Impact")
@@ -232,6 +228,6 @@ if df_protein_disease is not None:
             showlegend=True
         )
         fig_plant.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-        st.plotly_chart(fig_plant, use_container_width=True)
+        st.plotly_chart(fig_plant, width='stretch')
 else:
     st.warning("Could not load animal and plant protein disease data.")
