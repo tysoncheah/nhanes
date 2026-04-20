@@ -3,6 +3,11 @@ import pandas as pd
 import plotly.express as px
 from google.cloud import bigquery
 
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"],
+    scopes=["https://www.googleapis.com/auth/cloud-platform"],
+)
+
 st.set_page_config(page_title="NHANES Low Protein Validation", layout="wide")
 
 st.markdown("""
@@ -29,7 +34,7 @@ st.markdown('<p class="sub-header">Validation of the Levine et al. 2014 findings
 def load_data():
     df_mortality = None
     try:
-        client = bigquery.Client(project="nhanes-493602")
+        client = bigquery.Client(credentials=credentials,project=st.secrets["gcp_service_account"]["nhanes-493602"])
         query = """
             SELECT 
                 age_band_levine as `Age Group`,
