@@ -11,7 +11,7 @@ st.markdown("Validation of the Levine et al. 2014 paper on low protein diets, ca
 def load_data():
     try:
         # Assumes BigQuery default credentials are set up
-        client = bigquery.Client()
+        client = bigquery.Client(project="nhanes-493602")
         # In a real scenario, the dataset name would be dynamically injected or loaded from env
         # We query the mart table if dbt has run, or the kestra-generated summary table
         query = """
