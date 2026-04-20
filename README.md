@@ -1,5 +1,7 @@
 # NHANES to BigQuery
 
+**Live Dashboard:** [https://protein-intake-disease-risk.streamlit.app/](https://protein-intake-disease-risk.streamlit.app/)
+
 ## Overview
 
 This project is a cloud-native data engineering platform for replicating and extending nutritional longevity research using NHANES and linked mortality data. The core objective is to operationalize a reproducible pipeline that ingests public health datasets, converts legacy SAS Transport (`.xpt`) files into analytics-friendly Parquet, and models the relationship between protein intake, metabolic biomarkers, and mortality outcomes in BigQuery.
@@ -33,6 +35,7 @@ The platform follows a medallion-style architecture across Google Cloud Storage 
 - **Parquet** acts as the canonical storage format for transformed data.
 - **BigQuery** serves as the analytical warehouse.
 - **dbt** builds staging, intermediate, and mart models for downstream analysis.
+- **Streamlit** powers the interactive dashboard (`dashboard.py`) for visualizing validation results.
 
 ## Data Sources
 
@@ -155,11 +158,17 @@ The project is intended to produce:
 ## Implementation Roadmap
 
 1. Provision cloud infrastructure with Terraform.
-2. Ingest dietary, demographic, laboratory, and mortality files.
+2. Ingest dietary, demographic, laboratory, and mortality files via Kestra.
 3. Convert raw XPT inputs into Bronze Parquet datasets.
 4. Build dbt staging, intermediate, and mart models in BigQuery.
 5. Add food-code enrichment to classify animal and plant protein sources.
 6. Publish analytical tables for validation and dashboard use.
+7. Deploy the Streamlit dashboard (`dashboard.py`) for interactive visualization.
+
+## Reproducibility & Instructions
+
+For a step-by-step guide on how to provision the infrastructure, run the data pipeline, and launch the Streamlit dashboard locally, please refer to the [Instructions.md](Instructions.md) file.
+
 
 ## Why This Project Matters
 
