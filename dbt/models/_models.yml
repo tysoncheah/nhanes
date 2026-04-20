@@ -1,0 +1,144 @@
+version: 2
+
+models:
+  - name: stg_nhanes__source_catalog
+    description: Standardized source inventory for landed NHANES assets.
+    columns:
+      - name: source_asset_key
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_nhanes__demo
+    description: Standardized respondent-level demographics.
+    columns:
+      - name: respondent_key
+        tests:
+          - not_null
+          - unique
+      - name: respondent_id
+        tests:
+          - not_null
+      - name: cycle_label
+        tests:
+          - not_null
+
+  - name: stg_nhanes__dr1tot
+    description: Standardized day 1 nutrient totals.
+    columns:
+      - name: respondent_key
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_nhanes__dr2tot
+    description: Standardized day 2 nutrient totals.
+    columns:
+      - name: respondent_key
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_nhanes__dr1iff
+    description: Standardized day 1 item-level intake records.
+    columns:
+      - name: protein_item_key
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_nhanes__dr2iff
+    description: Standardized day 2 item-level intake records.
+    columns:
+      - name: protein_item_key
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_nhanes__glu
+    description: Standardized fasting glucose and insulin records.
+    columns:
+      - name: respondent_key
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_nhanes__mortality
+    description: Standardized linked mortality records.
+    columns:
+      - name: respondent_key
+        tests:
+          - not_null
+          - unique
+
+  - name: int_nhanes__respondent_daily_nutrients
+    description: Respondent-level joined nutrient, mortality, and fasting-glucose data.
+    columns:
+      - name: respondent_key
+        tests:
+          - not_null
+          - unique
+      - name: age_band_levine
+        tests:
+          - accepted_values:
+              values: ['UNDER_50', '50_65', '66_PLUS']
+
+  - name: int_nhanes__protein_items
+    description: Long-form day 1 and day 2 protein-contributing food items with broad source classification.
+    columns:
+      - name: protein_item_key
+        tests:
+          - not_null
+          - unique
+      - name: protein_source_group
+        tests:
+          - accepted_values:
+              values: ['animal', 'plant', 'unclassified']
+
+  - name: int_nhanes__respondent_protein_source_estimates
+    description: Respondent-level day 1 and day 2 protein source estimates derived from item-level food codes.
+    columns:
+      - name: respondent_key
+        tests:
+          - not_null
+          - unique
+
+  - name: mart_nhanes__validation_cohort
+    description: Analysis-ready validation cohort for low-protein and mortality research.
+    columns:
+      - name: respondent_key
+        tests:
+          - not_null
+          - unique
+      - name: age_band_levine
+        tests:
+          - accepted_values:
+              values: ['50_65', '66_PLUS']
+      - name: protein_group_day_1
+        tests:
+          - accepted_values:
+              values: ['LOW', 'MODERATE', 'HIGH']
+
+  - name: mart_nhanes__validation_summary
+    description: Aggregated validation summary by age band and protein group.
+    columns:
+      - name: summary_key
+        tests:
+          - not_null
+          - unique
+
+  - name: mart_nhanes__cycle_protein_trends
+    description: Cycle-level adult protein intake trend table for dashboards.
+    columns:
+      - name: trend_key
+        tests:
+          - not_null
+          - unique
+      - name: adult_age_band
+        tests:
+          - accepted_values:
+              values: ['18_49', '50_65', '66_PLUS']
+      - name: protein_group_day_1
+        tests:
+          - accepted_values:
+              values: ['LOW', 'MODERATE', 'HIGH']

@@ -1,0 +1,12 @@
+nhanes_low_protein:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: "{{ env_var('DBT_BIGQUERY_PROJECT') }}"
+      dataset: "{{ env_var('DBT_MART_DATASET', env_var('DBT_SOURCE_DATASET', 'nhanes')) }}"
+      keyfile: "{{ env_var('DBT_GOOGLE_APPLICATION_CREDENTIALS') }}"
+      threads: 4
+      location: "{{ env_var('DBT_BIGQUERY_LOCATION', 'asia-southeast1') }}"
+      priority: interactive

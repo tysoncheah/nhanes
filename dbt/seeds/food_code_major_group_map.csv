@@ -1,0 +1,10 @@
+food_code_major_group,major_group_label,protein_source_group,classification_method,classification_notes
+1,Milk and milk products,animal,fndds_major_group_heuristic,Dairy-coded foods are treated as animal-derived protein.
+2,Meat poultry fish and mixtures,animal,fndds_major_group_heuristic,Meat-centered food codes are treated as animal-derived protein.
+3,Eggs,animal,fndds_major_group_heuristic,Egg food codes are treated as animal-derived protein.
+4,Legumes nuts and seeds,plant,fndds_major_group_heuristic,Legume and nut food codes are treated as plant-derived protein.
+5,Grain products,plant,fndds_major_group_heuristic,Grain-coded foods are treated as plant-derived protein unless a richer mapping is added later.
+6,Fruits,plant,fndds_major_group_heuristic,Fruit-coded foods are treated as plant-derived protein.
+7,Vegetables,plant,fndds_major_group_heuristic,Vegetable-coded foods are treated as plant-derived protein.
+8,Fats oils and salad dressings,unclassified,fndds_major_group_heuristic,These foods are typically low-protein or source-ambiguous and remain unclassified.
+9,Sugars sweets and beverages,unclassified,fndds_major_group_heuristic,These foods mix plant and animal ingredients and remain unclassified in the initial seed.

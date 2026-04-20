@@ -209,3 +209,21 @@ __marimo__/
 .env_encoded
 service-account.json
 .json
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# dbt
+dbt/profiles.yml
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/

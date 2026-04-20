@@ -1,0 +1,14 @@
+version: 2
+
+seeds:
+  - name: food_code_major_group_map
+    description: Broad USDA FNDDS major food group mapping used for initial protein-source estimation.
+    columns:
+      - name: food_code_major_group
+        tests:
+          - not_null
+          - unique
+      - name: protein_source_group
+        tests:
+          - accepted_values:
+              values: ['animal', 'plant', 'unclassified']
