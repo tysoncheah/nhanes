@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from google.oauth2 import service_account
 from google.cloud import bigquery
 
 credentials = service_account.Credentials.from_service_account_info(
