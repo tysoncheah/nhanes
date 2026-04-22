@@ -1,6 +1,11 @@
 terraform {
   required_version = ">= 1.6.0"
 
+  backend "gcs" {
+    bucket = "nhanes-terraform-state-493602"
+    prefix = "terraform/state"
+  }
+
   required_providers {
     google = {
       source  = "hashicorp/google"

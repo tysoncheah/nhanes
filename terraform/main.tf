@@ -1,3 +1,13 @@
+import {
+  to = google_storage_bucket.nhanes
+  id = "nhanes-bucket"
+}
+
+import {
+  to = google_bigquery_dataset.nhanes
+  id = "nhanes-493602/nhanes"
+}
+
 locals {
   common_labels = merge(
     {
