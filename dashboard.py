@@ -13,17 +13,27 @@ st.set_page_config(page_title="NHANES Low Protein Validation", layout="wide")
 
 st.markdown("""
     <style>
+    /* Force black background */
+    .stApp {
+        background-color: #000000;
+        color: #e5e7eb;
+    }
     .main-header {
         font-family: 'Inter', sans-serif;
-        color: #1E3A8A;
+        color: #38bdf8;
         font-weight: 800;
         margin-bottom: 0px;
+        text-shadow: 0 0 15px rgba(56, 189, 248, 0.6);
     }
     .sub-header {
         font-family: 'Inter', sans-serif;
-        color: #4B5563;
+        color: #9ca3af;
         font-weight: 400;
         margin-bottom: 2rem;
+    }
+    /* Modern glowing effect on the chart containers */
+    [data-testid="stPlotlyChart"] {
+        filter: drop-shadow(0 0 20px rgba(56, 189, 248, 0.25));
     }
     </style>
 """, unsafe_allow_html=True)
@@ -162,20 +172,21 @@ fig_line = px.line(
     color="Age Group",
     facet_col="Cause",
     markers=True,
-    color_discrete_sequence=["#ef4444", "#3b82f6"]
+    color_discrete_sequence=["#ff0055", "#00e6e6"] # Neon colors
 )
 fig_line.update_yaxes(matches=None) # Allow independent y-axes for different baseline rates
 fig_line.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1])) # Clean up facet titles
 fig_line.update_layout(
+    template="plotly_dark",
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="Inter", size=14),
+    font=dict(family="Inter", size=14, color="#e5e7eb"),
     hovermode="x unified",
     margin=dict(t=30, b=10, l=10, r=10)
 )
-# Make lines thicker and markers larger for better premium feel
-fig_line.update_traces(line=dict(width=3), marker=dict(size=8))
-st.plotly_chart(fig_line, width='stretch')
+# Make lines thicker and markers larger for better premium feel, adding simulated glow via line width
+fig_line.update_traces(line=dict(width=4), marker=dict(size=10, symbol="circle", line=dict(width=2, color="white")))
+st.plotly_chart(fig_line, width='stretch', use_container_width=True)
 
 st.markdown("---")
 st.markdown("### Animal & Plant Protein vs Disease Risk")
@@ -194,18 +205,21 @@ if df_protein_disease is not None:
             color='age_band_levine',
             facet_col='Disease',
             facet_col_wrap=2,
-            color_discrete_sequence=["#ef4444", "#3b82f6"],
+            color_discrete_sequence=["#ff0055", "#00e6e6"],
             labels={'protein_quartile': 'Animal Protein Quartile', 'age_band_levine': 'Age Group'}
         )
         fig_animal.update_layout(
+            template="plotly_dark",
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="Inter", size=12),
+            font=dict(family="Inter", size=12, color="#e5e7eb"),
             margin=dict(t=50, b=10, l=10, r=10),
             showlegend=True
         )
+        # Add glow effect to bars via marker line
+        fig_animal.update_traces(marker_line_color='white', marker_line_width=1.5, opacity=0.9)
         fig_animal.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-        st.plotly_chart(fig_animal, width='stretch')
+        st.plotly_chart(fig_animal, width='stretch', use_container_width=True)
     
     with col2:
         st.markdown("#### Plant Protein Impact")
@@ -217,17 +231,19 @@ if df_protein_disease is not None:
             color='age_band_levine',
             facet_col='Disease',
             facet_col_wrap=2,
-            color_discrete_sequence=["#ef4444", "#3b82f6"],
+            color_discrete_sequence=["#ff0055", "#00e6e6"],
             labels={'protein_quartile': 'Plant Protein Quartile', 'age_band_levine': 'Age Group'}
         )
         fig_plant.update_layout(
+            template="plotly_dark",
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="Inter", size=12),
+            font=dict(family="Inter", size=12, color="#e5e7eb"),
             margin=dict(t=50, b=10, l=10, r=10),
             showlegend=True
         )
+        fig_plant.update_traces(marker_line_color='white', marker_line_width=1.5, opacity=0.9)
         fig_plant.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-        st.plotly_chart(fig_plant, width='stretch')
+        st.plotly_chart(fig_plant, width='stretch', use_container_width=True)
 else:
     st.warning("Could not load animal and plant protein disease data.")

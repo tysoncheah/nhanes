@@ -1,3 +1,5 @@
+![LinkedIn Post](linkedin%20post.jpg)
+
 # NHANES to BigQuery
 
 **Live Dashboard:** [https://protein-intake-disease-risk.streamlit.app/](https://protein-intake-disease-risk.streamlit.app/)
